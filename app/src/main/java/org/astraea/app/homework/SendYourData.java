@@ -131,6 +131,7 @@ public class SendYourData {
   public static class YourSender implements Closeable {
     private final KafkaProducer<Key, byte[]> producer;
     private final Map<Integer, byte[]> cache = new HashMap<>();
+    private final int[] index = {0};
 
     @Override
     public void close() throws IOException {
@@ -146,7 +147,7 @@ public class SendYourData {
             }
             var bytes = new byte[Long.BYTES * key.vs.size()];
             // var buffer = ByteBuffer.allocate(Long.BYTES * key.vs.size());
-            int[] index = {0};
+            index[0] = 0;
             key.vs.forEach(
                 (k) -> {
                   // Convert the long value `k` into bytes and store it in the correct position.
