@@ -21,7 +21,6 @@ import java.io.Closeable;
 import java.io.IOException;
 import java.lang.management.GarbageCollectorMXBean;
 import java.lang.management.ManagementFactory;
-import java.nio.ByteBuffer;
 import java.time.Duration;
 import java.util.List;
 import java.util.Map;
@@ -139,11 +138,21 @@ public class SendYourData {
     public YourSender(String bootstrapServers) {
       Serializer<Key> serializer =
           (topic, key) -> {
-            var buffer = ByteBuffer.allocate(Long.BYTES * key.vs.size());
-            key.vs.forEach(buffer::putLong);
-            buffer.flip();
-            var bytes = new byte[buffer.remaining()];
-            buffer.get(bytes);
+            var bytes = new byte[Long.BYTES * key.vs.size()];
+            // var buffer = ByteBuffer.allocate(Long.BYTES * key.vs.size());
+            int[] index = {0};
+            key.vs.forEach(
+                (k) -> {
+                  // Convert the long value `k` into bytes and store it in the correct position.
+                  bytes[index[0]++] = (byte) (k >>> 56);
+                  bytes[index[0]++] = (byte) (k >>> 48);
+                  bytes[index[0]++] = (byte) (k >>> 40);
+                  bytes[index[0]++] = (byte) (k >>> 32);
+                  bytes[index[0]++] = (byte) (k >>> 24);
+                  bytes[index[0]++] = (byte) (k >>> 16);
+                  bytes[index[0]++] = (byte) (k >>> 8);
+                  bytes[index[0]++] = k.byteValue();
+                });
             return bytes;
           };
       producer =
