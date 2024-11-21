@@ -131,7 +131,6 @@ public class SendYourData {
   public static class YourSender implements Closeable {
     private final KafkaProducer<Key, byte[]> producer;
     private final Map<Integer, byte[]> cache = new ConcurrentHashMap<>();
-    private final int[] index = {0};
 
     @Override
     public void close() throws IOException {
@@ -145,9 +144,10 @@ public class SendYourData {
             if (cache.containsKey(keyHash)) {
               return cache.get(keyHash);
             }
-            var bytes = new byte[Long.BYTES * key.vs.size()];
+            byte[] bytes = new byte[Long.BYTES * key.vs.size()];
             // var buffer = ByteBuffer.allocate(Long.BYTES * key.vs.size());
-            index[0] = 0;
+            int[] index = {0}; // Local index for tracking position
+
             key.vs.forEach(
                 (k) -> {
                   // Convert the long value `k` into bytes and store it in the correct position.
