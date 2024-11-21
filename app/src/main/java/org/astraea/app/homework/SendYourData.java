@@ -22,11 +22,11 @@ import java.io.IOException;
 import java.lang.management.GarbageCollectorMXBean;
 import java.lang.management.ManagementFactory;
 import java.time.Duration;
-import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.Set;
 import java.util.concurrent.CompletableFuture;
+import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.TimeUnit;
 import java.util.stream.Collectors;
 import java.util.stream.IntStream;
@@ -130,7 +130,7 @@ public class SendYourData {
 
   public static class YourSender implements Closeable {
     private final KafkaProducer<Key, byte[]> producer;
-    private final Map<Integer, byte[]> cache = new HashMap<>();
+    private final Map<Integer, byte[]> cache = new ConcurrentHashMap<>();
     private final int[] index = {0};
 
     @Override
