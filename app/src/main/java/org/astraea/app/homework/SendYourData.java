@@ -169,7 +169,7 @@ public class SendYourData {
                   ProducerConfig.BOOTSTRAP_SERVERS_CONFIG,
                   bootstrapServers,
                   ProducerConfig.BATCH_SIZE_CONFIG,
-                  "65536"),
+                  "131072"),
               serializer,
               new ByteArraySerializer());
     }
