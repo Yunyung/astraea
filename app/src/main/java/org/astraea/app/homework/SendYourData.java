@@ -165,7 +165,13 @@ public class SendYourData {
           };
       producer =
           new KafkaProducer<>(
-              Map.of(ProducerConfig.BOOTSTRAP_SERVERS_CONFIG, bootstrapServers),
+              Map.of(
+                  ProducerConfig.BOOTSTRAP_SERVERS_CONFIG,
+                  bootstrapServers,
+                  ProducerConfig.LINGER_MS_CONFIG,
+                  "2000",
+                  ProducerConfig.BATCH_SIZE_CONFIG,
+                  "65536"),
               serializer,
               new ByteArraySerializer());
     }
