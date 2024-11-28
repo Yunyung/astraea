@@ -58,9 +58,9 @@ public class BulkSender {
         Math.min(
             Runtime.getRuntime().availableProcessors(),
             numPartitions * numTopics); // The number of cores
-    // long perProducerDataSize = totalDataSize / numProducers;
+    long perProducerDataSize = totalDataSize / numProducers;
     System.out.println("numProducers = " + numProducers);
-    // System.out.println("perProducerDataSize = " + perProducerDataSize);
+    System.out.println("perProducerDataSize = " + perProducerDataSize);
     System.out.println("param.topics.size() = " + numTopics);
     System.out.println("param.dataSize.bytes() = " + totalDataSize);
 
@@ -85,6 +85,8 @@ public class BulkSender {
     ExecutorService executorService = Executors.newFixedThreadPool(numProducers);
     List<CompletableFuture<Void>> futures = new ArrayList<>();
     AtomicLong totalSentSize = new AtomicLong(0);
+    var key = "key";
+    var value = "value";
     for (int i = 0; i < numProducers; i++) {
       final int producerId = i;
       CompletableFuture<Void> future =
@@ -93,9 +95,8 @@ public class BulkSender {
                 try (var producer =
                     new KafkaProducer<>(
                         producerConfigs, new StringSerializer(), new StringSerializer())) {
-                  var key = "key";
-                  var value = "value";
-                  while (totalSentSize.get() < totalDataSize) {
+                  long sentSize = 0;
+                  while (sentSize < perProducerDataSize) {
                     // Distribute messages across topics in a round-robin fashion
                     String topic = param.topics.get((producerId + futures.size()) % numTopics);
 
@@ -107,6 +108,7 @@ public class BulkSender {
                             totalSentSize.addAndGet(messageSize);
                           }
                         });
+                    sentSize += key.getBytes().length + value.getBytes().length;
                   }
                 }
               },
