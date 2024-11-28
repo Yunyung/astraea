@@ -48,7 +48,8 @@ public class BulkSender {
     // you must manage producers for best performance
     try (var producer =
         new KafkaProducer<>(
-            Map.of(ProducerConfig.BOOTSTRAP_SERVERS_CONFIG, param.bootstrapServers()),
+            Map.of(ProducerConfig.BOOTSTRAP_SERVERS_CONFIG, param.bootstrapServers(),
+                    ProducerConfig.ACKS_CONFIG, 0),
             new StringSerializer(),
             new StringSerializer())) {
       var size = new AtomicLong(0);
