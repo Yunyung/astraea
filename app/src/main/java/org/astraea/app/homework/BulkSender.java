@@ -18,8 +18,13 @@ package org.astraea.app.homework;
 
 import com.beust.jcommander.Parameter;
 import java.io.IOException;
+import java.util.ArrayList;
 import java.util.List;
 import java.util.Map;
+import java.util.concurrent.CompletableFuture;
+import java.util.concurrent.ExecutorService;
+import java.util.concurrent.Executors;
+import java.util.concurrent.TimeUnit;
 import java.util.concurrent.atomic.AtomicLong;
 import org.apache.kafka.clients.admin.Admin;
 import org.apache.kafka.clients.admin.NewTopic;
@@ -38,14 +43,27 @@ public class BulkSender {
   }
 
   public static void execute(final Argument param) throws IOException, InterruptedException {
+    int numPartitions = 8;
     // you must create topics for best configs
-    System.out.println("param.topics.size() = " + param.topics.size());
     try (var admin =
         Admin.create(Map.of(AdminConfigs.BOOTSTRAP_SERVERS_CONFIG, param.bootstrapServers()))) {
       for (var t : param.topics) {
-        admin.createTopics(List.of(new NewTopic(t, 8, (short) 1))).all();
+        admin.createTopics(List.of(new NewTopic(t, numPartitions, (short) 1))).all();
       }
     }
+
+    long totalDataSize = param.dataSize.bytes();
+    int numTopics = param.topics.size(); // The number of topics
+    int numProducers =
+        Math.min(
+            Runtime.getRuntime().availableProcessors(),
+            numPartitions * numTopics); // The number of cores
+    // long perProducerDataSize = totalDataSize / numProducers;
+    System.out.println("numProducers = " + numProducers);
+    // System.out.println("perProducerDataSize = " + perProducerDataSize);
+    System.out.println("param.topics.size() = " + numTopics);
+    System.out.println("param.dataSize.bytes() = " + totalDataSize);
+
     Map<String, Object> producerConfigs =
         Map.of(
             ProducerConfig.BOOTSTRAP_SERVERS_CONFIG,
@@ -63,26 +81,65 @@ public class BulkSender {
             ProducerConfig.LINGER_MS_CONFIG,
             100);
 
-    // you must manage producers for best performance
-    var tp = 0;
-    try (var producer =
-        new KafkaProducer<>(producerConfigs, new StringSerializer(), new StringSerializer())) {
-      var size = new AtomicLong(0);
-      var key = "key";
-      var value = "value";
-      var ten_gigabyte = 10737418240L;
-      System.out.println("param.dataSize.bytes() = " + param.dataSize.bytes());
-      while (size.get() < ten_gigabyte) {
-        tp = (tp + 1) % param.topics.size();
-        var topic = param.topics.get(tp);
-        producer.send(
-            new ProducerRecord<>(topic, key, value),
-            (m, e) -> {
-              if (e == null) size.addAndGet(m.serializedKeySize() + m.serializedValueSize());
-            });
-      }
+    // Shared atomic counter to track total sent data
+    ExecutorService executorService = Executors.newFixedThreadPool(numProducers);
+    List<CompletableFuture<Void>> futures = new ArrayList<>();
+    AtomicLong totalSentSize = new AtomicLong(0);
+    for (int i = 0; i < numProducers; i++) {
+      final int producerId = i;
+      CompletableFuture<Void> future =
+          CompletableFuture.runAsync(
+              () -> {
+                try (var producer =
+                    new KafkaProducer<>(
+                        producerConfigs, new StringSerializer(), new StringSerializer())) {
+                  var key = "key";
+                  var value = "value";
+                  while (totalSentSize < totalDataSize) {
+                    // Distribute messages across topics in a round-robin fashion
+                    String topic = param.topics.get((producerId + futures.size()) % numTopics);
+
+                    producer.send(
+                        new ProducerRecord<>(topic, key, value),
+                        (m, e) -> {
+                          if (e == null) {
+                            long messageSize = m.serializedKeySize() + m.serializedValueSize();
+                            totalSentSize.addAndGet(messageSize);
+                          }
+                        });
+                  }
+                }
+              },
+              executorService);
+
+      futures.add(future);
     }
+    // Wait for all producers to complete
+    CompletableFuture.allOf(futures.toArray(new CompletableFuture[0])).join();
+
+    // Shutdown executor service
+    executorService.shutdown();
+    executorService.awaitTermination(1, TimeUnit.MINUTES);
+
+    System.out.println("Total data sent: " + totalSentSize.get() + " bytes");
   }
+
+  // you must manage producers for best performance
+  //    try (var producer =
+  //        new KafkaProducer<>(producerConfigs, new StringSerializer(), new StringSerializer())) {
+  //      var size = new AtomicLong(0);
+  //      var key = "key";
+  //      var value = "value";
+  //      while (size.get() < totalDataSize) {
+  //        tp = (tp + 1) % numTopics;
+  //        var topic = param.topics.get(tp);
+  //        producer.send(
+  //            new ProducerRecord<>(topic, key, value),
+  //            (m, e) -> {
+  //              if (e == null) size.addAndGet(m.serializedKeySize() + m.serializedValueSize());
+  //            });
+  //      }
+  //    }
 
   public static class Argument extends org.astraea.app.argument.Argument {
     @Parameter(
