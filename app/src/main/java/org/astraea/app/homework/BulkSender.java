@@ -22,9 +22,6 @@ import java.util.ArrayList;
 import java.util.List;
 import java.util.Map;
 import java.util.concurrent.CompletableFuture;
-import java.util.concurrent.ExecutorService;
-import java.util.concurrent.Executors;
-import java.util.concurrent.TimeUnit;
 import java.util.concurrent.atomic.AtomicLong;
 import org.apache.kafka.clients.admin.Admin;
 import org.apache.kafka.clients.admin.NewTopic;
@@ -81,9 +78,8 @@ public class BulkSender {
             ProducerConfig.LINGER_MS_CONFIG,
             100);
 
-    // Shared atomic counter to track total sent data
-    ExecutorService executorService = Executors.newFixedThreadPool(numProducers);
     List<CompletableFuture<Void>> futures = new ArrayList<>();
+    // Shared atomic counter to track total sent data
     AtomicLong totalSentSize = new AtomicLong(0);
     var key = "key";
     var value = "value";
@@ -111,17 +107,12 @@ public class BulkSender {
                     sentSize += key.getBytes().length + value.getBytes().length;
                   }
                 }
-              },
-              executorService);
+              });
 
       futures.add(future);
     }
     // Wait for all producers to complete
     CompletableFuture.allOf(futures.toArray(new CompletableFuture[0])).join();
-
-    // Shutdown executor service
-    executorService.shutdown();
-    executorService.awaitTermination(1, TimeUnit.MINUTES);
 
     System.out.println("Total data sent: " + totalSentSize.get() + " bytes");
   }
