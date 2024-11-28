@@ -40,6 +40,7 @@ public class BulkSender {
   }
 
   public static void execute(final Argument param) throws IOException, InterruptedException {
+    long timeBegin = System.currentTimeMillis();
     int numPartitions = 8;
     // you must create topics for best configs
     try (var admin =
@@ -115,6 +116,7 @@ public class BulkSender {
     CompletableFuture.allOf(futures.toArray(new CompletableFuture[0])).join();
 
     System.out.println("Total data sent: " + totalSentSize.get() + " bytes");
+    System.out.println("Total time spend: " + (System.currentTimeMillis() - timeBegin));
   }
 
   // you must manage producers for best performance
