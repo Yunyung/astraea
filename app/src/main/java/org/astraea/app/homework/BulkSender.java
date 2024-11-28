@@ -53,7 +53,7 @@ public class BulkSender {
             ProducerConfig.BOOTSTRAP_SERVERS_CONFIG,
             param.bootstrapServers(),
             ProducerConfig.ACKS_CONFIG,
-            "0",
+            "1",
             ProducerConfig.LINGER_MS_CONFIG,
             1000 // Introduce a small delay to allow batching
             );
@@ -70,8 +70,10 @@ public class BulkSender {
               var size = new AtomicLong(0);
               var key = "key".repeat(10);
               var value = "value".repeat(100);
+              var tp = 0;
               while (size.get() < param.dataSize.bytes() / param.topics.size()) {
-                var topic = param.topics.get((int) (Math.random() * param.topics.size()));
+                tp = tp + 1;
+                var topic = param.topics.get(tp % param.topics.size());
                 producer.send(
                     new ProducerRecord<>(topic, key, value),
                     (metadata, exception) -> {
