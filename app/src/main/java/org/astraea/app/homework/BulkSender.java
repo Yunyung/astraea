@@ -70,7 +70,9 @@ public class BulkSender {
       var size = new AtomicLong(0);
       var key = "key";
       var value = "value";
-      while (size.get() < param.dataSize.bytes()) {
+      var ten_gigabyte = 10737418240L;
+      System.out.println("param.dataSize.bytes() = " + param.dataSize.bytes());
+      while (size.get() < ten_gigabyte) {
         tp = (tp + 1) % param.topics.size();
         var topic = param.topics.get(tp);
         producer.send(
