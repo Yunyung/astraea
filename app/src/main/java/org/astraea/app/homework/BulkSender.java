@@ -42,7 +42,7 @@ public class BulkSender {
     try (var admin =
         Admin.create(Map.of(AdminConfigs.BOOTSTRAP_SERVERS_CONFIG, param.bootstrapServers()))) {
       for (var t : param.topics) {
-        admin.createTopics(List.of(new NewTopic(t, 1, (short) 1))).all();
+        admin.createTopics(List.of(new NewTopic(t, 3, (short) 1))).all();
       }
     }
     // you must manage producers for best performance
