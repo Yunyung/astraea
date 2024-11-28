@@ -52,7 +52,9 @@ public class BulkSender {
                 ProducerConfig.BOOTSTRAP_SERVERS_CONFIG,
                 param.bootstrapServers(),
                 ProducerConfig.PARTITIONER_IGNORE_KEYS_CONFIG,
-                true),
+                true,
+                ProducerConfig.LINGER_MS_CONFIG,
+                2000),
             new StringSerializer(),
             new StringSerializer())) {
       var size = new AtomicLong(0);
