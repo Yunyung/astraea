@@ -95,7 +95,7 @@ public class BulkSender {
                         producerConfigs, new StringSerializer(), new StringSerializer())) {
                   var key = "key";
                   var value = "value";
-                  while (totalSentSize < totalDataSize) {
+                  while (totalSentSize.get() < totalDataSize) {
                     // Distribute messages across topics in a round-robin fashion
                     String topic = param.topics.get((producerId + futures.size()) % numTopics);
 
