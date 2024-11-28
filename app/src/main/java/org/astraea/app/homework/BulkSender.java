@@ -39,10 +39,11 @@ public class BulkSender {
 
   public static void execute(final Argument param) throws IOException, InterruptedException {
     // you must create topics for best configs
+    System.out.println("param.topics.size() = " + param.topics.size());
     try (var admin =
         Admin.create(Map.of(AdminConfigs.BOOTSTRAP_SERVERS_CONFIG, param.bootstrapServers()))) {
       for (var t : param.topics) {
-        admin.createTopics(List.of(new NewTopic(t, 4, (short) 1))).all();
+        admin.createTopics(List.of(new NewTopic(t, 8, (short) 1))).all();
       }
     }
     Map<String, Object> producerConfigs =
@@ -57,9 +58,10 @@ public class BulkSender {
             "-7",
             ProducerConfig.PARTITIONER_IGNORE_KEYS_CONFIG,
             "true",
+            ProducerConfig.BATCH_SIZE_CONFIG,
+            "200000",
             ProducerConfig.LINGER_MS_CONFIG,
-            1000 // Introduce a small delay to allow batching
-            );
+            100);
 
     // you must manage producers for best performance
     var tp = 0;
