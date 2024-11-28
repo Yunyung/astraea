@@ -20,6 +20,8 @@ import com.beust.jcommander.Parameter;
 import java.io.IOException;
 import java.util.List;
 import java.util.Map;
+import java.util.concurrent.ExecutorService;
+import java.util.concurrent.Executors;
 import java.util.concurrent.atomic.AtomicLong;
 import org.apache.kafka.clients.admin.Admin;
 import org.apache.kafka.clients.admin.NewTopic;
@@ -42,34 +44,46 @@ public class BulkSender {
     try (var admin =
         Admin.create(Map.of(AdminConfigs.BOOTSTRAP_SERVERS_CONFIG, param.bootstrapServers()))) {
       for (var t : param.topics) {
-        admin.createTopics(List.of(new NewTopic(t, 3, (short) 1))).all();
+        admin.createTopics(List.of(new NewTopic(t, 2, (short) 1))).all();
       }
     }
+    Map<String, Object> producerConfigs =
+        Map.of(
+            ProducerConfig.BOOTSTRAP_SERVERS_CONFIG,
+            param.bootstrapServers(),
+            ProducerConfig.ACKS_CONFIG,
+            "0",
+            ProducerConfig.LINGER_MS_CONFIG,
+            1000 // Introduce a small delay to allow batching
+            );
+
     // you must manage producers for best performance
-    try (var producer =
-        new KafkaProducer<>(
-            Map.of(
-                ProducerConfig.BOOTSTRAP_SERVERS_CONFIG,
-                param.bootstrapServers(),
-                ProducerConfig.PARTITIONER_IGNORE_KEYS_CONFIG,
-                true,
-                ProducerConfig.ACKS_CONFIG,
-                "0",
-                ProducerConfig.LINGER_MS_CONFIG,
-                2000),
-            new StringSerializer(),
-            new StringSerializer())) {
-      var size = new AtomicLong(0);
-      var key = "key";
-      var value = "value";
-      while (size.get() < param.dataSize.bytes()) {
-        var topic = param.topics.get((int) (Math.random() * param.topics.size()));
-        producer.send(
-            new ProducerRecord<>(topic, key, value),
-            (m, e) -> {
-              if (e == null) size.addAndGet(m.serializedKeySize() + m.serializedValueSize());
-            });
-      }
+    ExecutorService executor =
+        Executors.newFixedThreadPool(param.topics.size()); // Adjust thread pool size
+    for (int i = 0; i < param.topics.size(); i++) {
+      executor.submit(
+          () -> {
+            try (var producer =
+                new KafkaProducer<>(
+                    producerConfigs, new StringSerializer(), new StringSerializer())) {
+              var size = new AtomicLong(0);
+              var key = "key".repeat(10);
+              var value = "value".repeat(100);
+              while (size.get() < param.dataSize.bytes() / param.topics.size()) {
+                var topic = param.topics.get((int) (Math.random() * param.topics.size()));
+                producer.send(
+                    new ProducerRecord<>(topic, key, value),
+                    (metadata, exception) -> {
+                      if (exception == null)
+                        size.addAndGet(
+                            metadata.serializedKeySize() + metadata.serializedValueSize());
+                    });
+              }
+              producer.flush(); // Ensure all data is sent before exiting
+            } catch (Exception e) {
+              e.printStackTrace();
+            }
+          });
     }
   }
 
